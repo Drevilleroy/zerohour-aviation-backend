@@ -1,0 +1,39 @@
+{
+  "family": "zerohour-worker",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::<account-id>:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "worker",
+      "image": "<account-id>.dkr.ecr.<region>.amazonaws.com/zerohour-api:latest",
+      "essential": true,
+      "command": [
+        "celery",
+        "-A",
+        "app.workers.celery_app",
+        "worker",
+        "--loglevel=INFO",
+        "-Q",
+        "provisioning,ingestion,normalization,scoring,cache,notifications,direct_mail,billing,analytics,admin"
+      ],
+      "secrets": [
+        {"name": "DATABASE_URL", "valueFrom": "/zerohour/prod/database-url"},
+        {"name": "REDIS_URL", "valueFrom": "/zerohour/prod/redis-url"},
+        {"name": "CELERY_BROKER_URL", "valueFrom": "/zerohour/prod/celery-broker-url"},
+        {"name": "CELERY_RESULT_BACKEND", "valueFrom": "/zerohour/prod/celery-result-backend"}
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/zerohour-worker",
+          "awslogs-region": "<region>",
+          "awslogs-stream-prefix": "worker"
+        }
+      }
+    }
+  ]
+}
+

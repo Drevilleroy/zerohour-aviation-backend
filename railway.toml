@@ -1,0 +1,18 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 10
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[scaling]
+minReplicas = 2
+maxReplicas = 20
+cpuThresholdPercent = 60
+
+[variables]
+PGBOUNCER_POOL_MODE = "transaction"
+PGBOUNCER_MAX_CLIENT_CONN = "500"
+PGBOUNCER_DEFAULT_POOL_SIZE = "25"

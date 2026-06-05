@@ -1,0 +1,1413 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ZEROHOUR REALTOR PULSE API",
+    "version": "0.1.0",
+    "description": "Phase 1 local MVP API contract for ZEROHOUR REALTOR PULSE. This contract supports frontend integration, simulated creator onboarding, async provisioning, mock ZIP signal ingestion, cached dashboards, signal actions, billing handoff, and basic admin operations."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000/api/v1",
+      "description": "Local development API"
+    }
+  ],
+  "tags": [
+    {
+      "name": "auth",
+      "description": "Signup, login, and JWT issuance"
+    },
+    {
+      "name": "onboarding",
+      "description": "Provisioning and DRE verification"
+    },
+    {
+      "name": "dashboard",
+      "description": "Cached dashboard and ZIP signal payloads"
+    },
+    {
+      "name": "signals",
+      "description": "Signal retrieval, claiming, and feedback loop events"
+    },
+    {
+      "name": "territories",
+      "description": "ZIP territory management"
+    },
+    {
+      "name": "billing",
+      "description": "Plan metadata and Stripe webhook handoff"
+    },
+    {
+      "name": "direct-mail",
+      "description": "Direct mail campaign queueing"
+    },
+    {
+      "name": "creators",
+      "description": "Creator attribution analytics"
+    },
+    {
+      "name": "analytics",
+      "description": "Behavioral events and unit economics surfaces"
+    },
+    {
+      "name": "admin",
+      "description": "Operational controls and visibility"
+    },
+    {
+      "name": "health",
+      "description": "Health and readiness checks"
+    }
+  ],
+  "paths": {
+    "/auth/signup": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Create account and enqueue async provisioning",
+        "operationId": "signup",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignupRequest"
+              },
+              "example": {
+                "email": "agent@example.com",
+                "password": "correct-horse-123",
+                "full_name": "Avery Agent",
+                "zip_codes": ["90210", "10001"],
+                "creator_code": "creator_a"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Signup accepted and provisioning queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Login with email and password",
+        "operationId": "login",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              },
+              "example": {
+                "email": "agent@example.com",
+                "password": "correct-horse-123"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "JWT issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/onboarding/provisioning/{job_id}": {
+      "get": {
+        "tags": ["onboarding"],
+        "summary": "Get async provisioning job status",
+        "operationId": "getProvisioningStatus",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Provisioning status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvisioningStatusResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/onboarding/dre-verification": {
+      "post": {
+        "tags": ["onboarding"],
+        "summary": "Submit DRE/license verification for async processing",
+        "operationId": "submitDreVerification",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DreVerificationRequest"
+              },
+              "example": {
+                "state": "CA",
+                "license_number": "123456"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verification queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DreVerificationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dashboard": {
+      "get": {
+        "tags": ["dashboard"],
+        "summary": "Get cached tenant dashboard snapshot",
+        "operationId": "getDashboard",
+        "responses": {
+          "200": {
+            "description": "Cached or degraded dashboard payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardResponse"
+                },
+                "example": {
+                  "tenant_id": "00000000-0000-0000-0000-000000000001",
+                  "mode": "redis_snapshot",
+                  "message": null,
+                  "zip_codes": ["90210"],
+                  "signals": [
+                    {
+                      "id": "00000000-0000-0000-0000-000000000010",
+                      "zip_code": "90210",
+                      "address": "2218 Coldwater Cyn",
+                      "type": "probate",
+                      "score": 82.4,
+                      "confidence": 0.91,
+                      "freshness_days": 12,
+                      "source": "mock_provider"
+                    }
+                  ],
+                  "generated_at": "2026-05-22T12:00:00"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dashboard/zips/{zip_code}": {
+      "get": {
+        "tags": ["dashboard"],
+        "summary": "Get cached ZIP-level signal payload",
+        "operationId": "getZipSignals",
+        "parameters": [
+          {
+            "name": "zip_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{5}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ZIP cache payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZipSignalsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/signals": {
+      "get": {
+        "tags": ["signals"],
+        "summary": "List active signals",
+        "operationId": "listSignals",
+        "parameters": [
+          {
+            "name": "zip_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{5}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "maximum": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active signal list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignalListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/signals/second-place-alert": {
+      "get": {
+        "tags": ["signals"],
+        "summary": "Check and consume the one-time second place dashboard alert",
+        "operationId": "getSecondPlaceAlert",
+        "responses": {
+          "200": {
+            "description": "Second place alert state. If show is true, the user is marked as shown immediately after this response is produced.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecondPlaceAlertResponse"
+                },
+                "example": {
+                  "show": true,
+                  "signal_type": "DIVORCE FILING",
+                  "address": "2218 Coldwater Cyn",
+                  "claim_delta_minutes": 23
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/signals/resolve-owner": {
+      "post": {
+        "tags": ["signals"],
+        "summary": "Resolve homeowner name and mailing address for one explicit signal-card action",
+        "description": "Use only when an agent clicks Send Letter or expands a signal card. This endpoint is rate-limited to 50 calls per agent per day and stores resolved owner data only in temporary session cache.",
+        "operationId": "resolveOwner",
+        "x-exact-alias": "/api/signals/resolve-owner",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OwnerResolutionRequest"
+              },
+              "example": {
+                "address": "2218 Coldwater Cyn",
+                "zip": "90210"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Owner resolution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerResolutionResponse"
+                },
+                "examples": {
+                  "resolved": {
+                    "value": {
+                      "resolved": true,
+                      "name": "Taylor Carter",
+                      "mailing_address": {
+                        "line1": "2218 Coldwater Cyn",
+                        "line2": null,
+                        "city": "Los Angeles",
+                        "state": "CA",
+                        "zip": "90210"
+                      }
+                    }
+                  },
+                  "unresolved": {
+                    "value": {
+                      "resolved": false,
+                      "name": null,
+                      "mailing_address": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Owner resolution daily limit exceeded"
+          },
+          "503": {
+            "description": "Rate limiter unavailable"
+          }
+        }
+      }
+    },
+    "/signals/{signal_id}/view": {
+      "post": {
+        "tags": ["signals"],
+        "summary": "Record signal viewed event",
+        "operationId": "viewSignal",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SignalId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Status"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/signals/{signal_id}/claim": {
+      "post": {
+        "tags": ["signals"],
+        "summary": "Claim a signal opportunity",
+        "operationId": "claimSignal",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SignalId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Status"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/signals/{signal_id}/outcomes": {
+      "post": {
+        "tags": ["signals"],
+        "summary": "Record signal performance feedback",
+        "operationId": "recordSignalOutcome",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SignalId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OutcomeRequest"
+              },
+              "example": {
+                "outcome_type": "appointment_booked",
+                "properties": {
+                  "channel": "phone"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Status"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/territories": {
+      "get": {
+        "tags": ["territories"],
+        "summary": "List tenant ZIP territories",
+        "operationId": "listTerritories",
+        "responses": {
+          "200": {
+            "description": "Territory list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerritoryListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/territories/{zip_code}": {
+      "post": {
+        "tags": ["territories"],
+        "summary": "Add ZIP territory and enqueue cache preload",
+        "operationId": "addTerritory",
+        "parameters": [
+          {
+            "name": "zip_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{5}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Status"
+          }
+        }
+      }
+    },
+    "/billing/plans": {
+      "get": {
+        "tags": ["billing"],
+        "summary": "List available plans",
+        "operationId": "listPlans",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Plan list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlansResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/billing/stripe/webhook": {
+      "post": {
+        "tags": ["billing"],
+        "summary": "Receive signed Stripe webhook",
+        "operationId": "stripeWebhook",
+        "security": [],
+        "parameters": [
+          {
+            "name": "Stripe-Signature",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook accepted or duplicate ignored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StripeWebhookResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/direct-mail/credits": {
+      "get": {
+        "tags": ["direct-mail"],
+        "summary": "Get direct mail credit status",
+        "operationId": "getDirectMailCredits",
+        "responses": {
+          "200": {
+            "description": "Credit status"
+          }
+        }
+      }
+    },
+    "/direct-mail/campaigns": {
+      "post": {
+        "tags": ["direct-mail"],
+        "summary": "Queue a direct mail campaign",
+        "operationId": "createDirectMailCampaign",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectMailCampaignRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Campaign queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectMailCampaignResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/creators/{creator_code}/analytics": {
+      "get": {
+        "tags": ["creators"],
+        "summary": "Get creator quality metrics surface",
+        "operationId": "getCreatorAnalytics",
+        "parameters": [
+          {
+            "name": "creator_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Creator analytics surface"
+          }
+        }
+      }
+    },
+    "/analytics/events": {
+      "post": {
+        "tags": ["analytics"],
+        "summary": "Capture behavioral event",
+        "operationId": "captureEvent",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventCaptureRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Status"
+          }
+        }
+      }
+    },
+    "/analytics/unit-economics": {
+      "get": {
+        "tags": ["analytics"],
+        "summary": "Get unit economics snapshots",
+        "operationId": "getUnitEconomics",
+        "responses": {
+          "200": {
+            "description": "Unit economics snapshots"
+          }
+        }
+      }
+    },
+    "/admin/queues": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "Get local queue depth overview",
+        "operationId": "getQueueOverview",
+        "responses": {
+          "200": {
+            "description": "Queue depth overview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueOverviewResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/provisioning": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "List recent provisioning jobs",
+        "operationId": "getProvisioningVisibility",
+        "responses": {
+          "200": {
+            "description": "Provisioning job visibility"
+          }
+        }
+      }
+    },
+    "/admin/market-health": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "List market health scores",
+        "operationId": "getMarketHealth",
+        "responses": {
+          "200": {
+            "description": "Market health"
+          }
+        }
+      }
+    },
+    "/admin/ingestion-runs": {
+      "get": {
+        "tags": ["admin"],
+        "summary": "List recent ingestion runs",
+        "operationId": "listIngestionRuns",
+        "responses": {
+          "200": {
+            "description": "Ingestion status visibility"
+          }
+        }
+      }
+    },
+    "/admin/ingestion/{zip_code}/enqueue": {
+      "post": {
+        "tags": ["admin"],
+        "summary": "Enqueue ZIP ingestion",
+        "operationId": "enqueueIngestion",
+        "parameters": [
+          {
+            "name": "zip_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "mock"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ingestion queued"
+          }
+        }
+      }
+    },
+    "/admin/kill-switches/{key}": {
+      "put": {
+        "tags": ["admin"],
+        "summary": "Set operational kill switch",
+        "operationId": "setKillSwitch",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "enabled",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "reason",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Kill switch updated"
+          }
+        }
+      }
+    },
+    "/admin/feature-flags/{key}": {
+      "put": {
+        "tags": ["admin"],
+        "summary": "Set feature flag",
+        "operationId": "setFeatureFlag",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "enabled",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "description",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Feature flag updated"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "parameters": {
+      "SignalId": {
+        "name": "signal_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "responses": {
+      "Status": {
+        "description": "Status response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/StatusResponse"
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Bad request"
+      },
+      "Unauthorized": {
+        "description": "Unauthorized"
+      },
+      "NotFound": {
+        "description": "Not found"
+      },
+      "Conflict": {
+        "description": "Conflict"
+      }
+    },
+    "schemas": {
+      "SignupRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 10
+          },
+          "full_name": {
+            "type": ["string", "null"]
+          },
+          "zip_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20
+          },
+          "creator_code": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "SignupResponse": {
+        "type": "object",
+        "required": ["access_token", "token_type", "user_id", "tenant_id", "provisioning_job_id", "onboarding_state"],
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "token_type": {
+            "type": "string",
+            "default": "bearer"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provisioning_job_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "onboarding_state": {
+            "type": "string"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "required": ["access_token", "token_type"],
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "token_type": {
+            "type": "string",
+            "default": "bearer"
+          }
+        }
+      },
+      "ProvisioningStatusResponse": {
+        "type": "object",
+        "required": ["id", "status", "requested_zips"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["queued", "processing", "ready", "failed"]
+          },
+          "message": {
+            "type": ["string", "null"]
+          },
+          "requested_zips": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "DreVerificationRequest": {
+        "type": "object",
+        "required": ["state", "license_number"],
+        "properties": {
+          "state": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "license_number": {
+            "type": "string"
+          }
+        }
+      },
+      "DreVerificationResponse": {
+        "type": "object",
+        "required": ["verification_id", "status", "message"],
+        "properties": {
+          "verification_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "DashboardResponse": {
+        "type": "object",
+        "required": ["tenant_id", "mode", "zip_codes", "signals"],
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "message": {
+            "type": ["string", "null"]
+          },
+          "zip_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "signals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SignalSummary"
+            }
+          },
+          "generated_at": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "ZipSignalsResponse": {
+        "type": "object",
+        "required": ["zip_code", "cache_status", "payload"],
+        "properties": {
+          "zip_code": {
+            "type": "string"
+          },
+          "cache_status": {
+            "type": "string",
+            "enum": ["redis", "postgres_stale_ok", "degraded_empty"]
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "SignalSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "zip_code": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "freshness_days": {
+            "type": "integer"
+          },
+          "source": {
+            "type": "string"
+          },
+          "address": {
+            "type": ["string", "null"]
+          },
+          "signal_fired_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "signal_claimed_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "claimed_by_user_id": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "claim_delta_minutes": {
+            "type": ["integer", "null"]
+          }
+        },
+        "additionalProperties": true
+      },
+      "SecondPlaceAlertResponse": {
+        "type": "object",
+        "required": ["show"],
+        "properties": {
+          "show": {
+            "type": "boolean"
+          },
+          "signal_type": {
+            "type": ["string", "null"]
+          },
+          "address": {
+            "type": ["string", "null"]
+          },
+          "claim_delta_minutes": {
+            "type": ["integer", "null"]
+          }
+        }
+      },
+      "OwnerResolutionRequest": {
+        "type": "object",
+        "required": ["address", "zip"],
+        "properties": {
+          "address": {
+            "type": "string",
+            "minLength": 3
+          },
+          "zip": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 10
+          }
+        }
+      },
+      "MailingAddress": {
+        "type": "object",
+        "required": ["line1"],
+        "properties": {
+          "line1": {
+            "type": "string"
+          },
+          "line2": {
+            "type": ["string", "null"]
+          },
+          "city": {
+            "type": ["string", "null"]
+          },
+          "state": {
+            "type": ["string", "null"]
+          },
+          "zip": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "OwnerResolutionResponse": {
+        "type": "object",
+        "required": ["resolved"],
+        "properties": {
+          "resolved": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": ["string", "null"]
+          },
+          "mailing_address": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/MailingAddress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "SignalListResponse": {
+        "type": "object",
+        "required": ["signals"],
+        "properties": {
+          "signals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SignalSummary"
+            }
+          }
+        }
+      },
+      "OutcomeRequest": {
+        "type": "object",
+        "required": ["outcome_type"],
+        "properties": {
+          "outcome_type": {
+            "type": "string",
+            "examples": ["contacted", "follow_up_scheduled", "appointment_booked", "listing_won", "deal_closed"]
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "TerritoryListResponse": {
+        "type": "object",
+        "required": ["territories"],
+        "properties": {
+          "territories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["zip_code", "status"],
+              "properties": {
+                "zip_code": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "PlansResponse": {
+        "type": "object",
+        "required": ["plans"],
+        "properties": {
+          "plans": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["key", "interval", "territory_limit", "monthly_equivalent_cents"],
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "enum": ["quarterly", "annual", "elite_annual"]
+                },
+                "interval": {
+                  "type": "string"
+                },
+                "territory_limit": {
+                  "type": "integer"
+                },
+                "monthly_equivalent_cents": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "StripeWebhookResponse": {
+        "type": "object",
+        "required": ["status", "event_id", "message", "has_signature"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["accepted", "duplicate_ignored"]
+          },
+          "event_id": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "has_signature": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DirectMailCampaignRequest": {
+        "type": "object",
+        "properties": {
+          "signal_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 250
+          },
+          "recipient_address_hashes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 250
+          },
+          "property_address": {
+            "type": ["string", "null"]
+          },
+          "zip": {
+            "type": ["string", "null"]
+          },
+          "template_key": {
+            "type": "string",
+            "default": "seller_signal_intro"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "DirectMailCampaignResponse": {
+        "type": "object",
+        "required": ["campaign_id", "status", "credit_cost", "message"],
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          },
+          "credit_cost": {
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "EventCaptureRequest": {
+        "type": "object",
+        "required": ["event_type"],
+        "properties": {
+          "event_type": {
+            "type": "string"
+          },
+          "entity_type": {
+            "type": ["string", "null"]
+          },
+          "entity_id": {
+            "type": ["string", "null"]
+          },
+          "tenant_id": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "user_id": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "QueueOverviewResponse": {
+        "type": "object",
+        "required": ["mode", "queues"],
+        "properties": {
+          "mode": {
+            "type": "string"
+          },
+          "queues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "depth"],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "depth": {
+                  "type": ["integer", "null"]
+                }
+              }
+            }
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      },
+      "StatusResponse": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "message": {
+            "type": ["string", "null"]
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ]
+}
