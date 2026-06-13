@@ -13,7 +13,11 @@ router = APIRouter(tags=["health"])
 
 
 @router.get("/health")
-def health(response: Response, db: Session = Depends(get_db)) -> dict:
+def health() -> dict:
+    return {"status": "ok"}
+
+
+def dependency_health(response: Response, db: Session = Depends(get_db)) -> dict:
     db_ok = True
     redis_ok = True
     try:
@@ -44,7 +48,7 @@ def live() -> dict:
 @router.get("/health/ready")
 def ready(db: Session = Depends(get_db)) -> dict:
     response = Response()
-    status = health(response, db)
-    if status["database"] != "ok":
-        return {**status, "status": "not_ready"}
-    return {**status, "status": "ready"}
+    health_status = dependency_health(response, db)
+    if health_status["database"] != "ok":
+        return {**health_status, "status": "not_ready"}
+    return {**health_status, "status": "ready"}

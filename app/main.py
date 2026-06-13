@@ -38,6 +38,8 @@ app = FastAPI(
 
 class HTTPSOnlyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        if request.url.path == "/health":
+            return await call_next(request)
         if settings.environment == "production" and request.url.scheme != "https":
             forwarded_proto = request.headers.get("x-forwarded-proto")
             if forwarded_proto != "https":
