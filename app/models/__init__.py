@@ -9,6 +9,7 @@ from app.models.aviation import (
     AviationSignal,
     AviationUserProfile,
     DeviceToken,
+    FlightBooking,
     SignupQueueItem,
 )
 from app.models.core import (
@@ -75,6 +76,7 @@ __all__ = [
     "DisclaimerAcceptance",
     "DreVerification",
     "FeatureFlag",
+    "FlightBooking",
     "FuelAlert",
     "IngestionRun",
     "KillSwitch",

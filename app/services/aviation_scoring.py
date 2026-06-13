@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+from hashlib import sha256
 from typing import Any
 
 
@@ -39,6 +41,24 @@ def score_signal(payload: dict[str, Any]) -> ProphfesyResult:
         high_confidence=score >= 85,
         should_alert=score >= 70,
     )
+
+
+def score_flight_disruption_probability(
+    *,
+    flight_number: str,
+    origin: str,
+    destination: str,
+    departure_date: datetime,
+) -> int:
+    """Deterministic pre-booking risk proxy until live flight signals arrive."""
+    fingerprint = sha256(
+        f"{flight_number.upper()}:{origin.upper()}:{destination.upper()}:{departure_date.date()}".encode()
+    ).digest()
+    route_pressure = fingerprint[0] / 255
+    time_pressure = 0.2 if departure_date.hour in {6, 7, 8, 16, 17, 18, 19} else 0.0
+    day_pressure = 0.15 if departure_date.weekday() in {0, 4, 6} else 0.0
+    score = round((route_pressure * 0.65 + time_pressure + day_pressure) * 100)
+    return max(1, min(99, score))
 
 
 def _normalize_indicator(value: Any) -> float:

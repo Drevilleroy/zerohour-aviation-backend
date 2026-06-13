@@ -29,9 +29,15 @@ from app.schemas.aviation import (
     BookingResponse,
     DeviceRegisterRequest,
     FlightCreateRequest,
+    FlightBookingDetailResponse,
+    FlightOfferResponse,
     FlightResponse,
+    FlightSearchRequest,
     LoginRequest,
     LoginResponse,
+    NewFlightBookRequest,
+    NewFlightBookResponse,
+    OfferRefreshResponse,
     RefreshRequest,
     RegisterRequest,
     RegisterResponse,
@@ -43,6 +49,12 @@ from app.services.aviation_pipeline import enqueue_flightaware_webhook, process_
 from app.services.aviation_providers import FlightAwareClient, PostmarkClient, StripeClient
 from app.services.aviation_security import encrypt_passenger_value, verify_hmac_sha256
 from app.services.cache import redis_client
+from app.services.new_flight_booking import (
+    create_new_flight_booking,
+    get_booking_details,
+    refresh_offer,
+    search_new_flight_offers,
+)
 from app.services.stripe import StripeSignatureError, verify_stripe_signature
 
 router = APIRouter(tags=["aviation"])
@@ -167,6 +179,60 @@ def list_flights(
     db: Session = Depends(get_read_db),
 ) -> list[AviationFlight]:
     return db.query(AviationFlight).filter(AviationFlight.user_id == ctx.user_id).order_by(AviationFlight.created_at.desc()).all()
+
+
+@router.post("/flights/search", response_model=list[FlightOfferResponse])
+async def search_flights(
+    payload: FlightSearchRequest,
+    ctx: RequestContext = Depends(get_request_context),
+) -> list[dict]:
+    return await search_new_flight_offers(
+        origin=payload.origin.upper(),
+        destination=payload.destination.upper(),
+        departure_date=payload.departure_date,
+        cabin_class=payload.cabin_class,
+        passenger_count=payload.passenger_count,
+    )
+
+
+@router.get("/flights/offers/{offer_id}", response_model=OfferRefreshResponse)
+async def get_flight_offer(
+    offer_id: str,
+    ctx: RequestContext = Depends(get_request_context),
+) -> dict:
+    return await refresh_offer(offer_id)
+
+
+@router.post("/flights/book", response_model=NewFlightBookResponse, status_code=status.HTTP_201_CREATED)
+async def book_flight(
+    payload: NewFlightBookRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    db: Session = Depends(get_db),
+) -> NewFlightBookResponse:
+    booking = await create_new_flight_booking(
+        db,
+        subscriber_id=ctx.user_id,
+        offer_id=payload.offer_id,
+        passenger=payload.passenger.model_dump(),
+        payment_token=payload.payment_token,
+    )
+    return NewFlightBookResponse(
+        booking_id=booking.booking_id,
+        duffel_order_id=booking.duffel_order_id,
+        booking_confirmation=booking.booking_confirmation,
+        ticket_details=booking.ticket_details,
+        zerohour_monitoring_active=booking.monitoring_status == "monitoring",
+        mission_briefing_sent=True,
+    )
+
+
+@router.get("/flights/bookings/{order_id}", response_model=FlightBookingDetailResponse)
+async def get_flight_booking(
+    order_id: str,
+    ctx: RequestContext = Depends(get_request_context),
+    db: Session = Depends(get_db),
+) -> dict:
+    return await get_booking_details(db, subscriber_id=ctx.user_id, order_id=order_id)
 
 
 @router.delete("/flights/{flight_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -94,7 +94,7 @@ def render_proof_card_png(signal: "AviationSignal", flight: "AviationFlight") ->
     )
 
     _paste_zerohour_mark(image)
-    _draw_centered_text(draw, 997, "zerohouraviation.com", dm_9, SIGNAL_GREEN)
+    _draw_centered_text(draw, 997, "flyzerohour.com", dm_9, SIGNAL_GREEN)
 
     signal_label = f"Signal #{str(signal.id).split('-')[0].upper()}"
     signal_width = _text_width(draw, signal_label, dm_9)

@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     postmark_from_email: str | None = None
     cloudinary_url: str | None = None
     passenger_encryption_key: str = Field(default="change-me-32-byte-passenger-key")
-    cors_origins: str = "https://zerohouraviation.com,http://localhost:3000,http://localhost:5173"
+    cors_origins: str = "https://flyzerohour.com,http://localhost:3000,http://localhost:5173"
     sendgrid_api_key: str | None = None
     resend_api_key: str | None = None
     lob_api_key: str | None = None

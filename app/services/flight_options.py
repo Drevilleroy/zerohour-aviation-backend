@@ -45,7 +45,7 @@ def build_rebooking_options(
                 kind=kind,
                 is_default=is_default,
                 badge_color=badge_color,
-                balanced_score=_balanced_score(offer, normalized),
+                zerohour_recommendation_score=_balanced_score(offer, normalized),
             )
         )
     if selected and not any(option["is_default"] for option in selected):
@@ -92,7 +92,7 @@ def _present_option(
     kind: str,
     is_default: bool,
     badge_color: str | None,
-    balanced_score: float,
+    zerohour_recommendation_score: float,
 ) -> dict[str, Any]:
     return {
         "label": label,
@@ -100,7 +100,7 @@ def _present_option(
         "offer_id": offer["offer_id"],
         "is_default": is_default,
         "badge_color": badge_color,
-        "balanced_score": balanced_score,
+        "zerohour_recommendation_score": zerohour_recommendation_score,
         "departure_time": offer["departure_time"],
         "arrival_time": offer["arrival_time"],
         "total_travel_time_minutes": offer["total_travel_time_minutes"],

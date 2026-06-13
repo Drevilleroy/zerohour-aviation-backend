@@ -80,6 +80,26 @@ class AviationBooking(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class FlightBooking(Base):
+    __tablename__ = "bookings"
+
+    booking_id: Mapped[uuid.UUID] = uuid_pk()
+    subscriber_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    duffel_order_id: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    origin: Mapped[str] = mapped_column(String(8), index=True)
+    destination: Mapped[str] = mapped_column(String(8), index=True)
+    flight_number: Mapped[str] = mapped_column(String(20), index=True)
+    departure_datetime: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    booking_timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    fare_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    zerohour_score_at_booking: Mapped[int] = mapped_column(Integer)
+    current_zerohour_score: Mapped[int] = mapped_column(Integer)
+    monitoring_status: Mapped[str] = mapped_column(String(40), default="monitoring", index=True)
+    flight_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("aviation_flights.id"), index=True)
+    booking_confirmation: Mapped[str | None] = mapped_column(String(80), index=True)
+    ticket_details: Mapped[dict] = mapped_column(JSONB, default=dict)
+
+
 class AviationPassenger(Base):
     __tablename__ = "aviation_passengers"
 

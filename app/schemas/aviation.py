@@ -52,6 +52,74 @@ class FlightCreateRequest(BaseModel):
     cabin_class: str = "economy"
 
 
+class FlightSearchRequest(BaseModel):
+    origin: str
+    destination: str
+    departure_date: datetime
+    cabin_class: str = "economy"
+    passenger_count: int = Field(default=1, ge=1, le=9)
+
+
+class FlightOfferResponse(BaseModel):
+    offer_id: str
+    flight_number: str | None
+    airline: str
+    airline_logo_url: str | None = None
+    departure_time: str | None
+    arrival_time: str | None
+    total_price: str
+    currency: str
+    number_of_stops: int
+    available_seats: int | None = None
+    zerohour_score: int
+    zerohour_recommendation_score: float | None = None
+
+
+class OfferRefreshResponse(FlightOfferResponse):
+    availability_status: str
+    price_changed: bool
+    warning: str | None = None
+
+
+class NewBookingPassenger(BaseModel):
+    name: str
+    date_of_birth: str
+    passport_number: str | None = None
+    email: EmailStr
+    phone: str | None = None
+
+
+class NewFlightBookRequest(BaseModel):
+    offer_id: str
+    passenger: NewBookingPassenger
+    payment_token: str
+
+
+class NewFlightBookResponse(BaseModel):
+    booking_id: UUID
+    duffel_order_id: str
+    booking_confirmation: str | None
+    ticket_details: dict
+    zerohour_monitoring_active: bool
+    mission_briefing_sent: bool
+
+
+class FlightBookingDetailResponse(BaseModel):
+    booking_id: str
+    duffel_order_id: str
+    booking_confirmation: str | None
+    origin: str
+    destination: str
+    flight_number: str
+    departure_datetime: datetime
+    fare_amount: str
+    initial_zerohour_score: int
+    current_zerohour_score: int
+    zerohour_monitoring_status: str
+    flight_status: str
+    duffel_order: dict
+
+
 class FlightResponse(BaseModel):
     id: UUID
     flight_number: str
@@ -94,7 +162,7 @@ class RebookingOption(BaseModel):
     offer_id: str
     is_default: bool
     badge_color: str | None
-    balanced_score: float
+    zerohour_recommendation_score: float
     departure_time: str | None
     arrival_time: str | None
     total_travel_time_minutes: int | None
@@ -113,7 +181,7 @@ class RebookingOption(BaseModel):
 class SignalResponse(BaseModel):
     id: UUID
     flight_id: UUID
-    score: int
+    zerohour_score: int = Field(validation_alias="score")
     signal_type: str
     fired_at: datetime
     airline_announced_at: datetime | None

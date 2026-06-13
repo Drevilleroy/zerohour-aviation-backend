@@ -30,7 +30,13 @@ class FlightAwareClient:
 
 class DuffelClient:
     async def search_alternatives(
-        self, *, origin: str, destination: str, departure_date: datetime, cabin_class: str
+        self,
+        *,
+        origin: str,
+        destination: str,
+        departure_date: datetime,
+        cabin_class: str,
+        passenger_count: int = 1,
     ) -> list[dict[str, Any]]:
         if not settings.duffel_api_key or settings.duffel_api_key.startswith("test_mock"):
             expires_at = datetime.now(UTC) + timedelta(minutes=45)
@@ -71,34 +77,14 @@ class DuffelClient:
                                 "departure_date": departure_date.date().isoformat(),
                             }
                         ],
-                        "passengers": [{"type": "adult"}],
+                        "passengers": [{"type": "adult"} for _ in range(passenger_count)],
                         "cabin_class": cabin_class,
                     }
                 },
             )
             response.raise_for_status()
             offers = response.json()["data"].get("offers", [])
-            return [
-                {
-                    "offer_id": offer["id"],
-                    "airline": offer.get("owner", {}).get("name", "Unknown"),
-                    "airline_logo_url": offer.get("owner", {}).get("logo_symbol_url") or offer.get("owner", {}).get("logo_lockup_url"),
-                    "flight_number": _extract_flight_number(offer),
-                    "departure_time": _extract_departure_time(offer),
-                    "arrival_time": _extract_arrival_time(offer),
-                    "total_travel_time_minutes": _extract_total_travel_time_minutes(offer),
-                    "number_of_stops": _extract_number_of_stops(offer),
-                    "layovers": _extract_layovers(offer),
-                    "cabin_class": _extract_cabin_class(offer),
-                    "fare_brand_name": _extract_fare_brand_name(offer),
-                    "carry_on_allowed": _extract_carry_on_allowed(offer),
-                    "price": offer.get("total_amount"),
-                    "total_price": offer.get("total_amount"),
-                    "currency": offer.get("total_currency"),
-                    "expires_at": offer.get("expires_at"),
-                }
-                for offer in offers
-            ]
+            return [_normalize_offer(offer) for offer in offers]
 
     async def create_order(self, offer_id: str, passenger: dict[str, str]) -> dict[str, Any]:
         if not settings.duffel_api_key or settings.duffel_api_key.startswith("test_mock"):
@@ -124,7 +110,60 @@ class DuffelClient:
                 "pnr": data.get("booking_reference", "PENDING"),
                 "new_flight_number": _extract_flight_number(data),
                 "new_departure": _extract_departure_time(data),
+                "ticket_details": data,
             }
+
+    async def get_offer(self, offer_id: str) -> dict[str, Any]:
+        if not settings.duffel_api_key or settings.duffel_api_key.startswith("test_mock"):
+            departure = datetime.now(UTC) + timedelta(hours=3)
+            return {
+                "offer_id": offer_id,
+                "airline": "United",
+                "flight_number": "UA901",
+                "origin": "SFO",
+                "destination": "JFK",
+                "departure_time": departure.isoformat(),
+                "arrival_time": (departure + timedelta(hours=5, minutes=30)).isoformat(),
+                "total_travel_time_minutes": 330,
+                "number_of_stops": 0,
+                "layovers": [],
+                "cabin_class": "economy",
+                "available_seats": 7,
+                "price": "255.00",
+                "total_price": "255.00",
+                "currency": "USD",
+                "available": True,
+                "expires_at": (datetime.now(UTC) + timedelta(minutes=45)).isoformat(),
+            }
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.get(
+                f"https://api.duffel.com/air/offers/{offer_id}",
+                headers={
+                    "Authorization": f"Bearer {settings.duffel_api_key}",
+                    "Duffel-Version": "v2",
+                },
+            )
+            response.raise_for_status()
+            return _normalize_offer(response.json()["data"])
+
+    async def get_order(self, order_id: str) -> dict[str, Any]:
+        if not settings.duffel_api_key or settings.duffel_api_key.startswith("test_mock"):
+            return {
+                "id": order_id,
+                "booking_reference": "ZHMOCK",
+                "status": "confirmed",
+                "slices": [],
+            }
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.get(
+                f"https://api.duffel.com/air/orders/{order_id}",
+                headers={
+                    "Authorization": f"Bearer {settings.duffel_api_key}",
+                    "Duffel-Version": "v2",
+                },
+            )
+            response.raise_for_status()
+            return response.json()["data"]
 
 
 class StripeClient:
@@ -225,7 +264,7 @@ class PostmarkClient:
 class ProofStorageClient:
     async def store_png(self, signal_id: str, png_bytes: bytes) -> str:
         if not settings.cloudinary_url:
-            return f"https://cdn.zerohouraviation.com/proof-cards/{signal_id}.png"
+            return f"https://cdn.flyzerohour.com/proof-cards/{signal_id}.png"
         # Cloudinary signed upload is environment-specific; keep the boundary explicit.
         return f"https://res.cloudinary.com/zerohour/image/upload/proof-cards/{signal_id}.png"
 
@@ -235,12 +274,55 @@ def _extract_flight_number(payload: dict[str, Any]) -> str:
     return "ALT" if not text else payload.get("flight_number") or payload.get("marketing_carrier_flight_number") or "ALT"
 
 
+def _normalize_offer(offer: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "offer_id": offer["id"],
+        "airline": offer.get("owner", {}).get("name", "Unknown"),
+        "airline_logo_url": offer.get("owner", {}).get("logo_symbol_url") or offer.get("owner", {}).get("logo_lockup_url"),
+        "flight_number": _extract_flight_number(offer),
+        "origin": _extract_origin(offer),
+        "destination": _extract_destination(offer),
+        "departure_time": _extract_departure_time(offer),
+        "arrival_time": _extract_arrival_time(offer),
+        "total_travel_time_minutes": _extract_total_travel_time_minutes(offer),
+        "number_of_stops": _extract_number_of_stops(offer),
+        "layovers": _extract_layovers(offer),
+        "cabin_class": _extract_cabin_class(offer),
+        "fare_brand_name": _extract_fare_brand_name(offer),
+        "carry_on_allowed": _extract_carry_on_allowed(offer),
+        "available_seats": _extract_available_seats(offer),
+        "price": offer.get("total_amount"),
+        "total_price": offer.get("total_amount"),
+        "currency": offer.get("total_currency"),
+        "available": offer.get("available", True),
+        "expires_at": offer.get("expires_at"),
+    }
+
+
 def _extract_departure_time(payload: dict[str, Any]) -> str:
     slices = payload.get("slices") or []
     try:
         return slices[0]["segments"][0]["departing_at"]
     except Exception:
         return datetime.now(UTC).isoformat()
+
+
+def _extract_origin(payload: dict[str, Any]) -> str | None:
+    slices = payload.get("slices") or []
+    try:
+        origin = slices[0]["segments"][0]["origin"]
+        return origin.get("iata_code") or origin.get("id")
+    except Exception:
+        return payload.get("origin")
+
+
+def _extract_destination(payload: dict[str, Any]) -> str | None:
+    slices = payload.get("slices") or []
+    try:
+        destination = slices[0]["segments"][-1]["destination"]
+        return destination.get("iata_code") or destination.get("id")
+    except Exception:
+        return payload.get("destination")
 
 
 def _extract_arrival_time(payload: dict[str, Any]) -> str:
@@ -314,6 +396,26 @@ def _extract_carry_on_allowed(payload: dict[str, Any]) -> bool | None:
             if key in baggage:
                 return bool(baggage[key])
     return None
+
+
+def _extract_available_seats(payload: dict[str, Any]) -> int | None:
+    for key in ("available_seats", "remaining_seats"):
+        if payload.get(key) is not None:
+            try:
+                return int(payload[key])
+            except (TypeError, ValueError):
+                return None
+    slices = payload.get("slices") or []
+    try:
+        segments = slices[0]["segments"]
+        values = [
+            int(segment.get("available_seats"))
+            for segment in segments
+            if segment.get("available_seats") is not None
+        ]
+        return min(values) if values else None
+    except Exception:
+        return None
 
 
 def _parse_datetime(value: str | None) -> datetime | None:
