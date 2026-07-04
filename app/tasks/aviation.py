@@ -5,8 +5,13 @@ import uuid
 
 from app.api.routes.aviation import process_signup_queue_item
 from app.db.session import SessionLocal
-from app.services.aviation_pipeline import PROOF_CARD_QUEUE, drain_flightaware_queue, generate_proof_card
+from app.services.aviation_pipeline import (
+    PROOF_CARD_QUEUE,
+    drain_flightaware_queue,
+    generate_proof_card,
+)
 from app.services.cache import redis_client
+from app.services.flight_booking_engine import monitor_price_alerts
 from app.workers.celery_app import celery_app
 
 
@@ -48,5 +53,14 @@ def process_signup_queue(limit: int = 250) -> int:
             asyncio.run(process_signup_queue_item(db, signal))
             processed += 1
         return processed
+    finally:
+        db.close()
+
+
+@celery_app.task(name="aviation.monitor_price_alerts")
+def monitor_flight_price_alerts(limit: int = 500) -> int:
+    db = SessionLocal()
+    try:
+        return asyncio.run(monitor_price_alerts(db, limit=limit))
     finally:
         db.close()

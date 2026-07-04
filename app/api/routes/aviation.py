@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 
 import jwt
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
@@ -18,7 +19,10 @@ from app.models import (
     AviationPassenger,
     AviationSignal,
     AviationUserProfile,
+    BookingHistory,
     DeviceToken,
+    PriceAlert,
+    SavedTrip,
     SignupQueueItem,
     Tenant,
     TenantMembership,
@@ -26,29 +30,47 @@ from app.models import (
 )
 from app.schemas.aviation import (
     BookingConfirmRequest,
+    BookingHistoryResponse,
+    BookingLogRequest,
+    BookingLogResponse,
     BookingResponse,
+    DeleteResponse,
     DeviceRegisterRequest,
     FlightCreateRequest,
     FlightBookingDetailResponse,
     FlightOfferResponse,
     FlightResponse,
+    FlightSearchEnvelope,
     FlightSearchRequest,
     LoginRequest,
     LoginResponse,
     NewFlightBookRequest,
     NewFlightBookResponse,
     OfferRefreshResponse,
+    PriceAlertCreateRequest,
+    PriceAlertCreateResponse,
+    PriceAlertResponse,
     RefreshRequest,
     RegisterRequest,
     RegisterResponse,
     SignalResponse,
     TokenResponse,
+    TripResponse,
+    TripSaveRequest,
+    TripSaveResponse,
 )
 from app.services.aviation_booking import confirm_booking
 from app.services.aviation_pipeline import enqueue_flightaware_webhook, process_flightaware_payload
 from app.services.aviation_providers import FlightAwareClient, PostmarkClient, StripeClient
 from app.services.aviation_security import encrypt_passenger_value, verify_hmac_sha256
 from app.services.cache import redis_client
+from app.services.flight_booking_engine import (
+    delete_saved_trip,
+    log_booking,
+    save_trip,
+    search_booking_engine,
+    set_price_alert,
+)
 from app.services.new_flight_booking import (
     create_new_flight_booking,
     get_booking_details,
@@ -181,19 +203,54 @@ def list_flights(
     return db.query(AviationFlight).filter(AviationFlight.user_id == ctx.user_id).order_by(AviationFlight.created_at.desc()).all()
 
 
-@router.post("/flights/search", response_model=list[FlightOfferResponse])
+@router.post("/flights/search", response_model=FlightSearchEnvelope)
 async def search_flights(
     payload: FlightSearchRequest,
     ctx: RequestContext = Depends(get_request_context),
+    db: Session = Depends(get_db),
+) -> dict:
+    departure = payload.departure or payload.origin
+    arrival = payload.arrival or payload.destination
+    date = payload.date or payload.departure_date
+    passengers = payload.passengers or payload.passenger_count
+    if not departure or not arrival or not date:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="departure, arrival, and date are required",
+        )
+    return await search_booking_engine(
+        db,
+        user_id=ctx.user_id,
+        departure=departure,
+        arrival=arrival,
+        date=date,
+        passengers=passengers,
+        loyalty_number=payload.loyaltyNumber,
+        gclid=payload.gclid,
+    )
+
+
+@router.post("/flights/search/raw", response_model=list[FlightOfferResponse])
+async def search_flights_raw(
+    payload: FlightSearchRequest,
+    ctx: RequestContext = Depends(get_request_context),
 ) -> list[dict]:
+    origin = payload.origin or payload.departure
+    destination = payload.destination or payload.arrival
+    departure_date = payload.departure_date or payload.date
+    if not origin or not destination or not departure_date:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="origin, destination, and departure_date are required",
+        )
     return await search_new_flight_offers(
-        origin=payload.origin.upper(),
-        destination=payload.destination.upper(),
-        departure_date=payload.departure_date,
+        origin=origin.upper(),
+        destination=destination.upper(),
+        departure_date=departure_date,
         earliest_departure_time=payload.earliest_departure_time,
         latest_arrival_time=payload.latest_arrival_time,
         cabin_class=payload.cabin_class,
-        passenger_count=payload.passenger_count,
+        passenger_count=payload.passengers or payload.passenger_count,
         max_stops=payload.max_stops,
         nonstop_preferred=payload.nonstop_preferred,
     )
@@ -242,6 +299,101 @@ async def get_flight_booking(
     db: Session = Depends(get_db),
 ) -> dict:
     return await get_booking_details(db, subscriber_id=ctx.user_id, order_id=order_id)
+
+
+@router.post("/trips/save", response_model=TripSaveResponse, status_code=status.HTTP_201_CREATED)
+def save_user_trip(
+    payload: TripSaveRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    db: Session = Depends(get_db),
+) -> TripSaveResponse:
+    trip = save_trip(
+        db,
+        user_id=ctx.user_id,
+        departure=payload.departure,
+        arrival=payload.arrival,
+        date=payload.date,
+        airline=payload.airline,
+    )
+    return TripSaveResponse(tripId=str(trip.id))
+
+
+@router.get("/trips", response_model=list[TripResponse])
+def get_saved_trips(
+    ctx: RequestContext = Depends(get_request_context),
+    db: Session = Depends(get_read_db),
+) -> list[TripResponse]:
+    rows = (
+        db.query(SavedTrip)
+        .filter(SavedTrip.user_id == ctx.user_id)
+        .order_by(SavedTrip.created_at.desc())
+        .all()
+    )
+    return [
+        TripResponse(
+            tripId=str(row.id),
+            departure=row.departure,
+            arrival=row.arrival,
+            date=row.date,
+            airline=row.airline,
+            createdAt=row.created_at,
+        )
+        for row in rows
+    ]
+
+
+@router.delete("/trips/{trip_id}", response_model=DeleteResponse)
+def delete_user_trip(
+    trip_id: uuid.UUID,
+    ctx: RequestContext = Depends(get_request_context),
+    db: Session = Depends(get_db),
+) -> DeleteResponse:
+    delete_saved_trip(db, user_id=ctx.user_id, trip_id=trip_id)
+    return DeleteResponse(success=True)
+
+
+@router.post("/alerts/price", response_model=PriceAlertCreateResponse, status_code=status.HTTP_201_CREATED)
+def create_price_alert(
+    payload: PriceAlertCreateRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    db: Session = Depends(get_db),
+) -> PriceAlertCreateResponse:
+    alert = set_price_alert(
+        db,
+        user_id=ctx.user_id,
+        flight_id=payload.flightId,
+        current_price=Decimal(str(payload.currentPrice)),
+    )
+    return PriceAlertCreateResponse(alertId=str(alert.id))
+
+
+@router.get("/alerts", response_model=list[PriceAlertResponse])
+def get_price_alerts(
+    ctx: RequestContext = Depends(get_request_context),
+    db: Session = Depends(get_read_db),
+) -> list[PriceAlertResponse]:
+    rows = (
+        db.query(PriceAlert)
+        .filter(PriceAlert.user_id == ctx.user_id, PriceAlert.active.is_(True))
+        .order_by(PriceAlert.created_at.desc())
+        .all()
+    )
+    return [
+        PriceAlertResponse(
+            alertId=str(row.id),
+            flightId=row.flight_id,
+            currentPrice=float(row.current_price),
+            currency=row.currency,
+            departure=row.departure,
+            arrival=row.arrival,
+            departureDate=row.departure_date,
+            airline=row.airline,
+            alertSentAt=row.alert_sent_at,
+            active=row.active,
+            createdAt=row.created_at,
+        )
+        for row in rows
+    ]
 
 
 @router.delete("/flights/{flight_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -311,6 +463,49 @@ def list_bookings(ctx: RequestContext = Depends(get_request_context), db: Sessio
             stripe_payment_intent_id=row.stripe_payment_intent_id,
             convenience_fee_charged=row.convenience_fee_charged,
             amount_charged=float(row.amount_charged),
+        )
+        for row in rows
+    ]
+
+
+@router.post("/bookings/log", response_model=BookingLogResponse, status_code=status.HTTP_201_CREATED)
+def log_user_booking(
+    payload: BookingLogRequest,
+    ctx: RequestContext = Depends(get_request_context),
+    db: Session = Depends(get_db),
+) -> BookingLogResponse:
+    log_booking(
+        db,
+        user_id=ctx.user_id,
+        flight_id=payload.flightId,
+        airline=payload.airline,
+        price=Decimal(str(payload.price)),
+        booking_ref=payload.bookingRef,
+    )
+    return BookingLogResponse(success=True)
+
+
+@router.get("/bookings/history", response_model=list[BookingHistoryResponse])
+def get_booking_history(
+    ctx: RequestContext = Depends(get_request_context),
+    db: Session = Depends(get_read_db),
+) -> list[BookingHistoryResponse]:
+    rows = (
+        db.query(BookingHistory)
+        .filter(BookingHistory.user_id == ctx.user_id)
+        .order_by(BookingHistory.booking_date.desc())
+        .all()
+    )
+    return [
+        BookingHistoryResponse(
+            bookingId=str(row.id),
+            flightId=row.flight_id,
+            airline=row.airline,
+            price=float(row.price),
+            currency=row.currency,
+            bookingRef=row.booking_ref,
+            bookingDate=row.booking_date,
+            createdAt=row.created_at,
         )
         for row in rows
     ]

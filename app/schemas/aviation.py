@@ -53,15 +53,59 @@ class FlightCreateRequest(BaseModel):
 
 
 class FlightSearchRequest(BaseModel):
-    origin: str
-    destination: str
-    departure_date: datetime
+    origin: str | None = None
+    destination: str | None = None
+    departure_date: datetime | None = None
     earliest_departure_time: datetime | None = None
     latest_arrival_time: datetime | None = None
     cabin_class: str = "economy"
     passenger_count: int = Field(default=1, ge=1, le=9)
     max_stops: int | None = Field(default=None, ge=0, le=3)
     nonstop_preferred: bool = False
+    departure: str | None = None
+    arrival: str | None = None
+    date: datetime | None = None
+    passengers: int | None = Field(default=None, ge=1, le=9)
+    loyaltyNumber: str | None = None
+    gclid: str | None = None
+
+
+class FlightAvailability(BaseModel):
+    seatsRemaining: int | None = None
+    status: str
+
+
+class LoyaltyEarning(BaseModel):
+    program: str | None = None
+    numberApplied: bool
+    estimatedMiles: int | None = None
+
+
+class FlightCard(BaseModel):
+    flightId: str
+    airline: str
+    airlineLogoUrl: str | None = None
+    flightNumber: str | None = None
+    departureTime: str | None = None
+    arrivalTime: str | None = None
+    durationMinutes: int
+    numberOfStops: int
+    basePriceUsd: float
+    currency: str = "USD"
+    directBookingUrl: str
+    availability: FlightAvailability
+    loyalty: LoyaltyEarning
+    badges: list[str] = []
+    zerohourScore: int | None = None
+    expiresAt: str | None = None
+
+
+class FlightSearchEnvelope(BaseModel):
+    bestValue: FlightCard | None
+    fastest: FlightCard | None
+    cheapest: FlightCard | None
+    allResults: list[FlightCard]
+    cacheStatus: str = "fresh"
 
 
 class FlightOfferResponse(BaseModel):
@@ -141,6 +185,75 @@ class FlightBookingDetailResponse(BaseModel):
     booking_status: str | None = None
     booking_source: str | None = None
     duffel_order: dict
+
+
+class TripSaveRequest(BaseModel):
+    departure: str
+    arrival: str
+    date: datetime
+    airline: str | None = None
+
+
+class TripSaveResponse(BaseModel):
+    tripId: str
+
+
+class TripResponse(BaseModel):
+    tripId: str
+    departure: str
+    arrival: str
+    date: datetime
+    airline: str | None = None
+    createdAt: datetime
+
+
+class DeleteResponse(BaseModel):
+    success: bool
+
+
+class PriceAlertCreateRequest(BaseModel):
+    flightId: str
+    currentPrice: float
+
+
+class PriceAlertCreateResponse(BaseModel):
+    alertId: str
+
+
+class PriceAlertResponse(BaseModel):
+    alertId: str
+    flightId: str
+    currentPrice: float
+    currency: str
+    departure: str | None = None
+    arrival: str | None = None
+    departureDate: datetime | None = None
+    airline: str | None = None
+    alertSentAt: datetime | None = None
+    active: bool
+    createdAt: datetime
+
+
+class BookingLogRequest(BaseModel):
+    flightId: str
+    airline: str
+    price: float
+    bookingRef: str | None = None
+
+
+class BookingLogResponse(BaseModel):
+    success: bool
+
+
+class BookingHistoryResponse(BaseModel):
+    bookingId: str
+    flightId: str
+    airline: str
+    price: float
+    currency: str
+    bookingRef: str | None = None
+    bookingDate: datetime
+    createdAt: datetime
 
 
 class FlightResponse(BaseModel):

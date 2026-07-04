@@ -15,6 +15,7 @@ celery_app = Celery(
         "app.tasks.billing",
         "app.tasks.notifications",
         "app.tasks.analytics",
+        "app.tasks.aviation",
         "app.jobs.scheduler",
     ],
 )
@@ -26,6 +27,8 @@ celery_app.conf.task_routes = {
     "app.tasks.billing.*": {"queue": "billing"},
     "app.tasks.notifications.*": {"queue": "notifications"},
     "app.tasks.analytics.*": {"queue": "analytics"},
+    "app.tasks.aviation.*": {"queue": "aviation"},
+    "aviation.*": {"queue": "aviation"},
     "app.jobs.scheduler.*": {"queue": "freight"},
 }
 celery_app.conf.task_acks_late = True
@@ -47,5 +50,9 @@ celery_app.conf.beat_schedule = {
     "compute-retention-risk-hourly": {
         "task": "app.tasks.analytics.compute_retention_risk",
         "schedule": 3600,
+    },
+    "aviation-price-alerts-every-6-hours": {
+        "task": "aviation.monitor_price_alerts",
+        "schedule": 21600,
     },
 }
