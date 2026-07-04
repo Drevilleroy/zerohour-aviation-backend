@@ -190,8 +190,12 @@ async def search_flights(
         origin=payload.origin.upper(),
         destination=payload.destination.upper(),
         departure_date=payload.departure_date,
+        earliest_departure_time=payload.earliest_departure_time,
+        latest_arrival_time=payload.latest_arrival_time,
         cabin_class=payload.cabin_class,
         passenger_count=payload.passenger_count,
+        max_stops=payload.max_stops,
+        nonstop_preferred=payload.nonstop_preferred,
     )
 
 
@@ -213,13 +217,18 @@ async def book_flight(
         db,
         subscriber_id=ctx.user_id,
         offer_id=payload.offer_id,
-        passenger=payload.passenger.model_dump(),
+        passenger=payload.passenger.model_dump() if payload.passenger else None,
         payment_token=payload.payment_token,
     )
     return NewFlightBookResponse(
         booking_id=booking.booking_id,
+        handoff_id=booking.duffel_order_id,
         duffel_order_id=booking.duffel_order_id,
         booking_confirmation=booking.booking_confirmation,
+        direct_booking_url=booking.direct_booking_url or "",
+        booking_source=booking.booking_source,
+        booking_status=booking.booking_status,
+        amount_charged="0.00",
         ticket_details=booking.ticket_details,
         zerohour_monitoring_active=booking.monitoring_status == "monitoring",
         mission_briefing_sent=True,

@@ -56,8 +56,12 @@ class FlightSearchRequest(BaseModel):
     origin: str
     destination: str
     departure_date: datetime
+    earliest_departure_time: datetime | None = None
+    latest_arrival_time: datetime | None = None
     cabin_class: str = "economy"
     passenger_count: int = Field(default=1, ge=1, le=9)
+    max_stops: int | None = Field(default=None, ge=0, le=3)
+    nonstop_preferred: bool = False
 
 
 class FlightOfferResponse(BaseModel):
@@ -73,6 +77,17 @@ class FlightOfferResponse(BaseModel):
     available_seats: int | None = None
     zerohour_score: int
     zerohour_recommendation_score: float | None = None
+    total_travel_time_minutes: int | None = None
+    cabin_class: str | None = None
+    fare_brand_name: str | None = None
+    carry_on_allowed: bool | None = None
+    layovers: list[dict] = []
+    direct_booking_url: str | None = None
+    booking_source: str = "direct_airline"
+    match_quality: str | None = None
+    recommendation_label: str | None = None
+    value_summary: str | None = None
+    expires_at: str | None = None
 
 
 class OfferRefreshResponse(FlightOfferResponse):
@@ -91,14 +106,19 @@ class NewBookingPassenger(BaseModel):
 
 class NewFlightBookRequest(BaseModel):
     offer_id: str
-    passenger: NewBookingPassenger
-    payment_token: str
+    passenger: NewBookingPassenger | None = None
+    payment_token: str | None = None
 
 
 class NewFlightBookResponse(BaseModel):
     booking_id: UUID
+    handoff_id: str
     duffel_order_id: str
     booking_confirmation: str | None
+    direct_booking_url: str
+    booking_source: str
+    booking_status: str
+    amount_charged: str = "0.00"
     ticket_details: dict
     zerohour_monitoring_active: bool
     mission_briefing_sent: bool
@@ -117,6 +137,9 @@ class FlightBookingDetailResponse(BaseModel):
     current_zerohour_score: int
     zerohour_monitoring_status: str
     flight_status: str
+    direct_booking_url: str | None = None
+    booking_status: str | None = None
+    booking_source: str | None = None
     duffel_order: dict
 
 

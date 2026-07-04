@@ -4,8 +4,18 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -97,6 +107,9 @@ class FlightBooking(Base):
     monitoring_status: Mapped[str] = mapped_column(String(40), default="monitoring", index=True)
     flight_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("aviation_flights.id"), index=True)
     booking_confirmation: Mapped[str | None] = mapped_column(String(80), index=True)
+    direct_booking_url: Mapped[str | None] = mapped_column(Text)
+    booking_status: Mapped[str] = mapped_column(String(40), default="handoff_created", index=True)
+    booking_source: Mapped[str] = mapped_column(String(40), default="direct_airline", index=True)
     ticket_details: Mapped[dict] = mapped_column(JSONB, default=dict)
 
 
