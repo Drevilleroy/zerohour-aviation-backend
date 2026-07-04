@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "ZEROHOUR REALTOR PULSE API",
+    "title": "ZEROHOUR AVIATION API",
     "version": "0.1.0",
-    "description": "Phase 1 local MVP API contract for ZEROHOUR REALTOR PULSE. This contract supports frontend integration, simulated creator onboarding, async provisioning, mock ZIP signal ingestion, cached dashboards, signal actions, billing handoff, and basic admin operations."
+    "description": "API contract for ZeroHour Aviation flight disruption intelligence, direct-airline booking handoffs, saved trips, price alerts, booking history, and analytics."
   },
   "servers": [
     {

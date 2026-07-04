@@ -1,7 +1,7 @@
 [project]
-name = "zerohour-realtor-pulse-backend"
+name = "zerohour-aviation-backend"
 version = "0.1.0"
-description = "Cache-first FastAPI backend for ZEROHOUR REALTOR PULSE"
+description = "FastAPI backend for ZeroHour Aviation flight disruption intelligence and direct booking"
 requires-python = ">=3.11"
 dependencies = [
   "alembic>=1.13.2",
