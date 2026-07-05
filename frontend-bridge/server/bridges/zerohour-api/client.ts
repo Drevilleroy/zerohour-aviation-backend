@@ -3,6 +3,11 @@ import { TRPCError } from "@trpc/server";
 import { ENV } from "../../_core/env";
 
 type Method = "GET" | "POST" | "DELETE";
+type TokenCarrier = {
+  token?: string;
+  accessToken?: string;
+  jwt?: string;
+};
 
 export async function zeroHourApi<T>(
   path: string,
@@ -51,8 +56,25 @@ export async function zeroHourApi<T>(
 
 export function authToken(ctx: unknown): string | undefined {
   const maybeCtx = ctx as {
-    user?: { token?: string; accessToken?: string };
-    session?: { accessToken?: string };
+    user?: TokenCarrier;
+    session?: TokenCarrier;
+    auth?: TokenCarrier;
+    token?: string;
+    accessToken?: string;
+    req?: { headers?: { authorization?: string } };
   };
-  return maybeCtx.user?.token ?? maybeCtx.user?.accessToken ?? maybeCtx.session?.accessToken;
+  const bearer = maybeCtx.req?.headers?.authorization;
+  return (
+    maybeCtx.user?.token ??
+    maybeCtx.user?.accessToken ??
+    maybeCtx.user?.jwt ??
+    maybeCtx.session?.token ??
+    maybeCtx.session?.accessToken ??
+    maybeCtx.session?.jwt ??
+    maybeCtx.auth?.token ??
+    maybeCtx.auth?.accessToken ??
+    maybeCtx.token ??
+    maybeCtx.accessToken ??
+    (bearer?.toLowerCase().startsWith("bearer ") ? bearer.slice(7) : undefined)
+  );
 }

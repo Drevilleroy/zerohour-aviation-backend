@@ -66,9 +66,21 @@ The bridge expects the auth token at one of:
 
 - `ctx.user.token`
 - `ctx.user.accessToken`
+- `ctx.user.jwt`
+- `ctx.session.token`
 - `ctx.session.accessToken`
+- `ctx.session.jwt`
+- `ctx.auth.token`
+- `ctx.auth.accessToken`
+- `ctx.token`
+- `ctx.accessToken`
+- `ctx.req.headers.authorization`
 
 If Manus stores the bearer token elsewhere, update `authToken()` in `client.ts`.
+
+The bridge callbacks include explicit `{ input, ctx }` parameter types so strict
+TypeScript projects do not emit implicit `any` errors when local tRPC helpers are
+loosely typed.
 
 ## Procedures
 

@@ -12,9 +12,33 @@ const flightSearchInput = z.object({
   loyaltyNumber: z.string().optional(),
   gclid: z.string().optional(),
 });
+type FlightSearchInput = z.infer<typeof flightSearchInput>;
+
+const offerIdInput = z.object({ offerId: z.string().min(1) });
+type OfferIdInput = z.infer<typeof offerIdInput>;
+
+const bookInput = z.object({
+  offerId: z.string().min(1),
+  passenger: z
+    .object({
+      name: z.string(),
+      dateOfBirth: z.string(),
+      passportNumber: z.string().optional(),
+      email: z.string().email(),
+      phone: z.string().optional(),
+    })
+    .optional(),
+});
+type BookInput = z.infer<typeof bookInput>;
 
 export const flightsBridge = router({
-  search: publicProcedure.input(flightSearchInput).mutation(async ({ input, ctx }) => {
+  search: publicProcedure.input(flightSearchInput).mutation(async ({
+    input,
+    ctx,
+  }: {
+    input: FlightSearchInput;
+    ctx: unknown;
+  }) => {
     return zeroHourApi("/flights/search", {
       method: "POST",
       token: authToken(ctx),
@@ -30,29 +54,16 @@ export const flightsBridge = router({
   }),
 
   getResults: publicProcedure
-    .input(z.object({ offerId: z.string().min(1) }))
-    .query(async ({ input, ctx }) => {
+    .input(offerIdInput)
+    .query(async ({ input, ctx }: { input: OfferIdInput; ctx: unknown }) => {
       return zeroHourApi(`/flights/offers/${encodeURIComponent(input.offerId)}`, {
         token: authToken(ctx),
       });
     }),
 
   book: protectedProcedure
-    .input(
-      z.object({
-        offerId: z.string().min(1),
-        passenger: z
-          .object({
-            name: z.string(),
-            dateOfBirth: z.string(),
-            passportNumber: z.string().optional(),
-            email: z.string().email(),
-            phone: z.string().optional(),
-          })
-          .optional(),
-      }),
-    )
-    .mutation(async ({ input, ctx }) => {
+    .input(bookInput)
+    .mutation(async ({ input, ctx }: { input: BookInput; ctx: unknown }) => {
       return zeroHourApi("/flights/book", {
         method: "POST",
         token: authToken(ctx),

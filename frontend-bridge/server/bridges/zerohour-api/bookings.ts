@@ -4,17 +4,18 @@ import { protectedProcedure, router } from "../../_core/trpc";
 
 import { authToken, zeroHourApi } from "./client";
 
+const bookingLogInput = z.object({
+  flightId: z.string().min(1),
+  airline: z.string().min(1),
+  price: z.number().nonnegative(),
+  bookingRef: z.string().optional(),
+});
+type BookingLogInput = z.infer<typeof bookingLogInput>;
+
 export const bookingsBridge = router({
   logBooking: protectedProcedure
-    .input(
-      z.object({
-        flightId: z.string().min(1),
-        airline: z.string().min(1),
-        price: z.number().nonnegative(),
-        bookingRef: z.string().optional(),
-      }),
-    )
-    .mutation(async ({ input, ctx }) => {
+    .input(bookingLogInput)
+    .mutation(async ({ input, ctx }: { input: BookingLogInput; ctx: unknown }) => {
       return zeroHourApi("/bookings/log", {
         method: "POST",
         token: authToken(ctx),
@@ -27,7 +28,7 @@ export const bookingsBridge = router({
       });
     }),
 
-  getHistory: protectedProcedure.query(async ({ ctx }) => {
+  getHistory: protectedProcedure.query(async ({ ctx }: { ctx: unknown }) => {
     return zeroHourApi("/bookings/history", {
       token: authToken(ctx),
     });
