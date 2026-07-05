@@ -10,7 +10,7 @@ migrate:
 	alembic upgrade head
 
 worker:
-	celery -A app.workers.celery_app worker --loglevel=INFO -Q provisioning,ingestion,normalization,scoring,cache,notifications,direct_mail,billing,analytics,admin
+	celery -A app.workers.celery_app worker --loglevel=INFO -Q aviation,provisioning,ingestion,normalization,scoring,cache,notifications,direct_mail,billing,analytics,admin
 
 beat:
 	celery -A app.workers.celery_app beat --loglevel=INFO

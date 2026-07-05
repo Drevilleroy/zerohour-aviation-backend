@@ -36,6 +36,7 @@ In `server/routers.ts`:
 ```ts
 import {
   alertsBridge,
+  bookingBridge,
   bookingsBridge,
   flightsBridge,
   tripsBridge,
@@ -43,12 +44,17 @@ import {
 
 export const appRouter = router({
   // existing routers...
+  booking: bookingBridge,
   flights: flightsBridge,
   trips: tripsBridge,
   alerts: alertsBridge,
   bookings: bookingsBridge,
 });
 ```
+
+If the UI already calls nested procedures like `trpc.booking.flights.search`, mounting
+`booking: bookingBridge` is the important line. The top-level `flights`, `trips`,
+`alerts`, and `bookings` entries are optional compatibility aliases.
 
 ## Assumptions To Verify In Manus Repo
 
@@ -94,6 +100,19 @@ loosely typed.
 - `alerts.get`
 - `bookings.logBooking`
 - `bookings.getHistory`
+
+Nested equivalents are also available when mounted as `booking: bookingBridge`:
+
+- `booking.flights.search`
+- `booking.flights.getResults`
+- `booking.flights.book`
+- `booking.trips.save`
+- `booking.trips.getSaved`
+- `booking.trips.delete`
+- `booking.alerts.setPrice`
+- `booking.alerts.get`
+- `booking.bookings.logBooking`
+- `booking.bookings.getHistory`
 
 `flights.search` and `flights.getResults` are public so ad traffic can search before
 logging in. Account actions remain protected: saved trips, price alerts, booking history,

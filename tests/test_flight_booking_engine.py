@@ -4,9 +4,12 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import uuid4
 
+from sqlalchemy.exc import OperationalError
+
 import app.services.flight_booking_engine as booking_engine
 from app.models import SavedTrip
 from app.services.flight_booking_engine import (
+    _log_search,
     build_search_envelope,
     normalize_airport,
     save_trip,
@@ -155,3 +158,33 @@ def test_set_price_alert_can_use_saved_trip_id() -> None:
     assert alert.flight_id == "off_alert"
     assert alert.departure == "NYC"
     assert alert.arrival == "LAX"
+
+
+def test_log_search_is_best_effort_when_database_is_unavailable() -> None:
+    class BrokenDB:
+        rolled_back = False
+
+        def add(self, obj) -> None:
+            return None
+
+        def commit(self) -> None:
+            raise OperationalError("insert", {}, Exception("database unavailable"))
+
+        def rollback(self) -> None:
+            self.rolled_back = True
+
+    db = BrokenDB()
+
+    _log_search(
+        db,
+        user_id=None,
+        departure="LAX",
+        arrival="JFK",
+        date=datetime(2026, 7, 6, tzinfo=UTC),
+        passengers=1,
+        results_count=3,
+        gclid=None,
+        metadata={"cache": "miss"},
+    )
+
+    assert db.rolled_back is True

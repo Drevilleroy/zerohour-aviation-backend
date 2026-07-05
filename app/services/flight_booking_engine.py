@@ -8,6 +8,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.models import BookingHistory, DeviceToken, PriceAlert, SavedTrip, SearchAnalytics, User
@@ -480,19 +481,22 @@ def _log_search(
     gclid: str | None,
     metadata: dict[str, Any],
 ) -> None:
-    db.add(
-        SearchAnalytics(
-            user_id=user_id,
-            departure=departure,
-            arrival=arrival,
-            date=date,
-            passengers=passengers,
-            results_count=results_count,
-            gclid=gclid,
-            metadata_=metadata,
+    try:
+        db.add(
+            SearchAnalytics(
+                user_id=user_id,
+                departure=departure,
+                arrival=arrival,
+                date=date,
+                passengers=passengers,
+                results_count=results_count,
+                gclid=gclid,
+                metadata_=metadata,
+            )
         )
-    )
-    db.commit()
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
 
 
 def _parse_datetime(value: str | None) -> datetime | None:
