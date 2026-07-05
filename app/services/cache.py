@@ -12,7 +12,14 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models import ZipSignalCache
 
-redis_client = Redis.from_url(settings.redis_url, decode_responses=True)
+redis_client = Redis.from_url(
+    settings.redis_url,
+    decode_responses=True,
+    max_connections=settings.redis_max_connections,
+    socket_timeout=settings.redis_socket_timeout_seconds,
+    socket_connect_timeout=settings.redis_socket_connect_timeout_seconds,
+    health_check_interval=30,
+)
 
 
 class CacheKeys:

@@ -14,7 +14,14 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     database_url: str = "postgresql+psycopg://zerohour:zerohour@localhost:5432/zerohour"
     database_replica_url: str | None = None
+    database_pool_size: int = 10
+    database_max_overflow: int = 15
+    database_pool_timeout_seconds: int = 10
+    database_pool_recycle_seconds: int = 1800
     redis_url: str = "redis://localhost:6379/0"
+    redis_max_connections: int = 50
+    redis_socket_timeout_seconds: int = 2
+    redis_socket_connect_timeout_seconds: int = 2
     celery_broker_url: str = "redis://localhost:6379/1"
     celery_result_backend: str = "redis://localhost:6379/2"
     jwt_secret: str = Field(default="change-me")
@@ -44,6 +51,13 @@ class Settings(BaseSettings):
     cloudinary_url: str | None = None
     passenger_encryption_key: str = Field(default="change-me-32-byte-passenger-key")
     cors_origins: str = "https://flyzerohour.com,http://localhost:3000,http://localhost:5173"
+    allowed_hosts: str = "flyzerohour.com,*.flyzerohour.com,localhost,127.0.0.1,testserver"
+    mount_legacy_routes: bool = False
+    backup_rate_limit_enabled: bool = True
+    auth_register_rate_limit_per_hour: int = 10
+    auth_login_rate_limit_per_hour: int = 20
+    authenticated_rate_limit_per_minute: int = 100
+    anonymous_rate_limit_per_minute: int = 60
     sendgrid_api_key: str | None = None
     resend_api_key: str | None = None
     lob_api_key: str | None = None
