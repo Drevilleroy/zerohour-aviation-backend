@@ -164,17 +164,44 @@ def save_trip(
     db: Session,
     *,
     user_id: UUID,
-    departure: str,
-    arrival: str,
-    date: datetime,
+    departure: str | None = None,
+    arrival: str | None = None,
+    date: datetime | None = None,
     airline: str | None = None,
+    flight_id: str | None = None,
+    price: Decimal | None = None,
 ) -> SavedTrip:
+    offer = {}
+    if flight_id:
+        offer = (
+            get_json(f"duffel:offer:{flight_id}")
+            or get_json(f"duffel:search_offer:{flight_id}")
+            or {}
+        )
+    departure = departure or offer.get("origin")
+    arrival = arrival or offer.get("destination")
+    date = date or _parse_datetime(offer.get("departure_time"))
+    airline = airline or offer.get("airline")
+    price = (
+        price
+        if price is not None
+        else _decimal_or_none(offer.get("total_price") or offer.get("price"))
+    )
+    if not departure or not arrival or not date:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Provide departure, arrival, and date, or save from a valid flightId",
+        )
     trip = SavedTrip(
         user_id=user_id,
+        flight_id=flight_id,
         departure=normalize_airport(departure),
         arrival=normalize_airport(arrival),
         date=date,
         airline=airline,
+        price=price,
+        currency=offer.get("currency") or "USD",
+        direct_booking_url=offer.get("direct_booking_url"),
     )
     db.add(trip)
     db.commit()
@@ -194,23 +221,34 @@ def set_price_alert(
     db: Session,
     *,
     user_id: UUID,
-    flight_id: str,
-    current_price: Decimal,
+    flight_id: str | None = None,
+    current_price: Decimal | None = None,
+    trip_id: UUID | None = None,
 ) -> PriceAlert:
+    trip = db.get(SavedTrip, trip_id) if trip_id else None
+    if trip_id and (not trip or trip.user_id != user_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found")
+    flight_id = flight_id or (trip.flight_id if trip else None)
+    current_price = current_price if current_price is not None else (trip.price if trip else None)
+    if not flight_id or current_price is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Provide flightId/currentPrice or tripId for price alerts",
+        )
     offer = (
-        get_json(f"duffel:offer:{flight_id}")
-        or get_json(f"duffel:search_offer:{flight_id}")
-        or {}
+        get_json(f"duffel:offer:{flight_id}") or get_json(f"duffel:search_offer:{flight_id}") or {}
     )
     alert = PriceAlert(
         user_id=user_id,
         flight_id=flight_id,
         current_price=current_price,
         currency=offer.get("currency") or "USD",
-        departure=offer.get("origin"),
-        arrival=offer.get("destination"),
-        departure_date=_parse_datetime(offer.get("departure_time")),
-        airline=offer.get("airline"),
+        departure=offer.get("origin") or (trip.departure if trip else None),
+        arrival=offer.get("destination") or (trip.arrival if trip else None),
+        departure_date=(
+            _parse_datetime(offer.get("departure_time")) or (trip.date if trip else None)
+        ),
+        airline=offer.get("airline") or (trip.airline if trip else None),
     )
     db.add(alert)
     db.commit()
@@ -464,4 +502,13 @@ def _parse_datetime(value: str | None) -> datetime | None:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
         return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
     except ValueError:
+        return None
+
+
+def _decimal_or_none(value: Any) -> Decimal | None:
+    if value is None:
+        return None
+    try:
+        return Decimal(str(value))
+    except Exception:
         return None

@@ -8,9 +8,11 @@ export const tripsBridge = router({
   save: protectedProcedure
     .input(
       z.object({
-        departure: z.string().min(1),
-        arrival: z.string().min(1),
-        date: z.coerce.date(),
+        flightId: z.string().optional(),
+        price: z.number().nonnegative().optional(),
+        departure: z.string().min(1).optional(),
+        arrival: z.string().min(1).optional(),
+        date: z.coerce.date().optional(),
         airline: z.string().optional(),
       }),
     )
@@ -19,9 +21,11 @@ export const tripsBridge = router({
         method: "POST",
         token: authToken(ctx),
         body: {
+          flightId: input.flightId,
+          price: input.price,
           departure: input.departure,
           arrival: input.arrival,
-          date: input.date.toISOString(),
+          date: input.date?.toISOString(),
           airline: input.airline,
         },
       });

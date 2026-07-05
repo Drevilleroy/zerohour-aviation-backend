@@ -118,10 +118,14 @@ class SavedTrip(Base):
 
     id: Mapped[uuid.UUID] = uuid_pk()
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    flight_id: Mapped[str | None] = mapped_column(String(160), index=True)
     departure: Mapped[str] = mapped_column(String(80), index=True)
     arrival: Mapped[str] = mapped_column(String(80), index=True)
     date: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     airline: Mapped[str | None] = mapped_column(String(120), index=True)
+    price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    currency: Mapped[str] = mapped_column(String(8), default="USD")
+    direct_booking_url: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

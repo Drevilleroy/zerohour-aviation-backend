@@ -188,22 +188,29 @@ class FlightBookingDetailResponse(BaseModel):
 
 
 class TripSaveRequest(BaseModel):
-    departure: str
-    arrival: str
-    date: datetime
+    flightId: str | None = None
+    price: float | None = None
+    departure: str | None = None
+    arrival: str | None = None
+    date: datetime | None = None
     airline: str | None = None
 
 
 class TripSaveResponse(BaseModel):
     tripId: str
+    savedAt: datetime
 
 
 class TripResponse(BaseModel):
     tripId: str
+    flightId: str | None = None
     departure: str
     arrival: str
     date: datetime
     airline: str | None = None
+    price: float | None = None
+    currency: str = "USD"
+    directBookingUrl: str | None = None
     createdAt: datetime
 
 
@@ -212,8 +219,10 @@ class DeleteResponse(BaseModel):
 
 
 class PriceAlertCreateRequest(BaseModel):
-    flightId: str
-    currentPrice: float
+    flightId: str | None = None
+    currentPrice: float | None = None
+    tripId: str | None = None
+    targetPrice: float | None = None
 
 
 class PriceAlertCreateResponse(BaseModel):

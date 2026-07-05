@@ -81,3 +81,23 @@ If Manus stores the bearer token elsewhere, update `authToken()` in `client.ts`.
 - `alerts.get`
 - `bookings.logBooking`
 - `bookings.getHistory`
+
+## Compatible Call Shapes
+
+The bridge accepts the card-based calls Manus currently shows in the UI:
+
+```ts
+trpc.booking.trips.save.mutate({ flightId, price });
+trpc.booking.alerts.setPrice.mutate({ tripId, targetPrice });
+```
+
+It also accepts the fuller explicit trip shape:
+
+```ts
+trpc.booking.trips.save.mutate({
+  departure: "NYC",
+  arrival: "LAX",
+  date: new Date("2026-07-10"),
+  airline: "United",
+});
+```

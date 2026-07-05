@@ -314,8 +314,10 @@ def save_user_trip(
         arrival=payload.arrival,
         date=payload.date,
         airline=payload.airline,
+        flight_id=payload.flightId,
+        price=Decimal(str(payload.price)) if payload.price is not None else None,
     )
-    return TripSaveResponse(tripId=str(trip.id))
+    return TripSaveResponse(tripId=str(trip.id), savedAt=trip.created_at)
 
 
 @router.get("/trips", response_model=list[TripResponse])
@@ -332,10 +334,14 @@ def get_saved_trips(
     return [
         TripResponse(
             tripId=str(row.id),
+            flightId=row.flight_id,
             departure=row.departure,
             arrival=row.arrival,
             date=row.date,
             airline=row.airline,
+            price=float(row.price) if row.price is not None else None,
+            currency=row.currency,
+            directBookingUrl=row.direct_booking_url,
             createdAt=row.created_at,
         )
         for row in rows
@@ -362,7 +368,10 @@ def create_price_alert(
         db,
         user_id=ctx.user_id,
         flight_id=payload.flightId,
-        current_price=Decimal(str(payload.currentPrice)),
+        current_price=(
+            Decimal(str(payload.currentPrice)) if payload.currentPrice is not None else None
+        ),
+        trip_id=uuid.UUID(payload.tripId) if payload.tripId else None,
     )
     return PriceAlertCreateResponse(alertId=str(alert.id))
 

@@ -8,8 +8,10 @@ export const alertsBridge = router({
   setPrice: protectedProcedure
     .input(
       z.object({
-        flightId: z.string().min(1),
-        currentPrice: z.number().nonnegative(),
+        flightId: z.string().min(1).optional(),
+        currentPrice: z.number().nonnegative().optional(),
+        tripId: z.string().min(1).optional(),
+        targetPrice: z.number().nonnegative().optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -18,7 +20,9 @@ export const alertsBridge = router({
         token: authToken(ctx),
         body: {
           flightId: input.flightId,
-          currentPrice: input.currentPrice,
+          currentPrice: input.currentPrice ?? input.targetPrice,
+          tripId: input.tripId,
+          targetPrice: input.targetPrice,
         },
       });
     }),
