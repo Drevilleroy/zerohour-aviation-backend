@@ -43,7 +43,7 @@ CITY_TO_AIRPORT = {
 async def search_booking_engine(
     db: Session,
     *,
-    user_id: UUID,
+    user_id: UUID | None,
     departure: str,
     arrival: str,
     date: datetime,
@@ -471,7 +471,7 @@ def _search_cache_key(
 def _log_search(
     db: Session,
     *,
-    user_id: UUID,
+    user_id: UUID | None,
     departure: str,
     arrival: str,
     date: datetime,

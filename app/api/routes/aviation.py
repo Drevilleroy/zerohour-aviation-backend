@@ -9,7 +9,7 @@ import jwt
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import RequestContext, get_request_context
+from app.api.deps import RequestContext, get_optional_request_context, get_request_context
 from app.core.config import settings
 from app.core.security import create_access_token, create_refresh_token, hash_password, verify_password
 from app.db.session import get_db, get_read_db
@@ -206,7 +206,7 @@ def list_flights(
 @router.post("/flights/search", response_model=FlightSearchEnvelope)
 async def search_flights(
     payload: FlightSearchRequest,
-    ctx: RequestContext = Depends(get_request_context),
+    ctx: RequestContext | None = Depends(get_optional_request_context),
     db: Session = Depends(get_db),
 ) -> dict:
     departure = payload.departure or payload.origin
@@ -220,7 +220,7 @@ async def search_flights(
         )
     return await search_booking_engine(
         db,
-        user_id=ctx.user_id,
+        user_id=ctx.user_id if ctx else None,
         departure=departure,
         arrival=arrival,
         date=date,
@@ -259,7 +259,6 @@ async def search_flights_raw(
 @router.get("/flights/offers/{offer_id}", response_model=OfferRefreshResponse)
 async def get_flight_offer(
     offer_id: str,
-    ctx: RequestContext = Depends(get_request_context),
 ) -> dict:
     return await refresh_offer(offer_id)
 

@@ -82,6 +82,10 @@ If Manus stores the bearer token elsewhere, update `authToken()` in `client.ts`.
 - `bookings.logBooking`
 - `bookings.getHistory`
 
+`flights.search` and `flights.getResults` are public so ad traffic can search before
+logging in. Account actions remain protected: saved trips, price alerts, booking history,
+and booking log calls should still require a signed-in user.
+
 ## Compatible Call Shapes
 
 The bridge accepts the card-based calls Manus currently shows in the UI:

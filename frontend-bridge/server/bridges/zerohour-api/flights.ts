@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { protectedProcedure, router } from "../../trpc";
+import { protectedProcedure, publicProcedure, router } from "../../trpc";
 
 import { authToken, zeroHourApi } from "./client";
 
@@ -14,7 +14,7 @@ const flightSearchInput = z.object({
 });
 
 export const flightsBridge = router({
-  search: protectedProcedure.input(flightSearchInput).mutation(async ({ input, ctx }) => {
+  search: publicProcedure.input(flightSearchInput).mutation(async ({ input, ctx }) => {
     return zeroHourApi("/flights/search", {
       method: "POST",
       token: authToken(ctx),
@@ -29,7 +29,7 @@ export const flightsBridge = router({
     });
   }),
 
-  getResults: protectedProcedure
+  getResults: publicProcedure
     .input(z.object({ offerId: z.string().min(1) }))
     .query(async ({ input, ctx }) => {
       return zeroHourApi(`/flights/offers/${encodeURIComponent(input.offerId)}`, {

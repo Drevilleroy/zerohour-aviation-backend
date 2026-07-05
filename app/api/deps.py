@@ -34,6 +34,14 @@ def get_request_context(authorization: str | None = Header(default=None)) -> Req
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
 
 
+def get_optional_request_context(
+    authorization: str | None = Header(default=None),
+) -> RequestContext | None:
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None
+    return get_request_context(authorization)
+
+
 def require_admin(ctx: RequestContext = Depends(get_request_context)) -> RequestContext:
     if ctx.role not in {"admin", "owner"}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
@@ -54,4 +62,3 @@ def get_current_user(
     if not membership:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tenant access denied")
     return user
-
