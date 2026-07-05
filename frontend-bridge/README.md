@@ -55,11 +55,12 @@ export const appRouter = router({
 The bridge imports these symbols:
 
 ```ts
-import { protectedProcedure, router } from "../../trpc";
+import { protectedProcedure, publicProcedure, router } from "../../_core/trpc";
 import { ENV } from "../../_core/env";
 ```
 
-If the Manus frontend uses different local paths, adjust those two imports in each bridge file.
+From `server/bridges/zerohour-api/*.ts`, the Manus frontend path should be
+`../../_core/trpc`. Do not use `../../trpc`.
 
 The bridge expects the auth token at one of:
 

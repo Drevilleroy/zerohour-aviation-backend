@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { protectedProcedure, publicProcedure, router } from "../../trpc";
+import { protectedProcedure, publicProcedure, router } from "../../_core/trpc";
 
 import { authToken, zeroHourApi } from "./client";
 
