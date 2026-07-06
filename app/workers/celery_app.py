@@ -39,6 +39,18 @@ celery_app.conf.result_serializer = "json"
 celery_app.conf.accept_content = ["json"]
 celery_app.conf.timezone = "UTC"
 celery_app.conf.beat_schedule = {
+    "aviation-signup-queue-every-5-seconds": {
+        "task": "aviation.process_signup_queue",
+        "schedule": 5,
+    },
+    "aviation-flightaware-webhooks-every-5-seconds": {
+        "task": "aviation.drain_flightaware_webhooks",
+        "schedule": 5,
+    },
+    "aviation-proof-cards-every-30-seconds": {
+        "task": "aviation.generate_proof_cards",
+        "schedule": 30,
+    },
     "refresh-market-health-hourly": {
         "task": "app.tasks.analytics.refresh_market_health",
         "schedule": 3600,

@@ -13,7 +13,7 @@ services:
 
   worker:
     build: .
-    command: celery -A app.workers.celery_app worker --loglevel=INFO -Q provisioning,ingestion,normalization,scoring,cache,notifications,direct_mail,billing,analytics,admin,freight
+    command: celery -A app.workers.celery_app worker --loglevel=INFO -Q aviation,provisioning,ingestion,normalization,scoring,cache,notifications,direct_mail,billing,analytics,admin,freight
     env_file: .env
     volumes:
       - .:/app

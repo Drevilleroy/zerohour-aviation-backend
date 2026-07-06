@@ -11,6 +11,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models import AviationFlight, DeviceToken, FlightBooking, User
+from app.services.alerts import capture_critical_failure
 from app.services.aviation_providers import (
     DuffelClient,
     FlightAwareClient,
@@ -124,7 +125,19 @@ async def create_new_flight_booking(
     destination = refreshed.get("destination") or ""
     score = int(refreshed.get("zerohour_score") or 0)
 
-    webhook_id = await FlightAwareClient().register_webhook(flight_number, departure)
+    try:
+        webhook_id = await FlightAwareClient().register_webhook(flight_number, departure)
+    except Exception as exc:
+        capture_critical_failure(
+            "flightaware.webhook_registration_failed",
+            exc,
+            context={
+                "subscriber_id": subscriber_id,
+                "flight_number": flight_number,
+                "departure": departure.isoformat(),
+            },
+        )
+        raise
     flight = AviationFlight(
         user_id=subscriber_id,
         flight_number=flight_number,
@@ -168,7 +181,15 @@ async def create_new_flight_booking(
     db.add(booking)
     db.commit()
     db.refresh(booking)
-    await send_mission_briefing(db, user, booking)
+    try:
+        await send_mission_briefing(db, user, booking)
+    except Exception as exc:
+        capture_critical_failure(
+            "notifications.mission_briefing_failed",
+            exc,
+            context={"subscriber_id": subscriber_id, "booking_id": booking.booking_id},
+        )
+        raise
     return booking
 
 

@@ -12,6 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.models import BookingHistory, DeviceToken, PriceAlert, SavedTrip, SearchAnalytics, User
+from app.services.alerts import capture_critical_failure
 from app.services.aviation_providers import DuffelClient, NotificationClient, PostmarkClient
 from app.services.cache import get_json, set_json
 from app.services.new_flight_booking import search_new_flight_offers
@@ -98,6 +99,11 @@ async def search_booking_engine(
         if stale:
             stale["cacheStatus"] = "stale_fallback"
             return stale
+        capture_critical_failure(
+            "duffel.flight_search_failed",
+            exc,
+            context={"origin": origin, "destination": destination, "passengers": passengers},
+        )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Flight search is temporarily unavailable",

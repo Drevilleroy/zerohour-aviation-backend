@@ -8,6 +8,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models import AviationBooking, AviationPassenger, AviationSignal, AviationUserProfile, DeviceToken
+from app.services.alerts import capture_critical_failure
 from app.services.aviation_pipeline import queue_proof_card
 from app.services.aviation_providers import DuffelClient, NotificationClient, StripeClient
 from app.services.aviation_security import decrypt_passenger_value
@@ -37,13 +38,21 @@ async def confirm_booking(db: Session, *, user_id: UUID, signal_id: UUID, offer_
         amount += Decimal("4.99")
     amount_cents = int(amount * 100)
     stripe = StripeClient()
-    payment_intent_id = await stripe.create_payment_intent(
-        amount_cents=amount_cents,
-        customer_id=profile.stripe_customer_id,
-        idempotency_key=f"booking-{user_id}-{signal_id}",
-        description=f"ZeroHour rebooking - {signal.flight.flight_number}",
-        payment_method_id=profile.stripe_payment_method_id,
-    )
+    try:
+        payment_intent_id = await stripe.create_payment_intent(
+            amount_cents=amount_cents,
+            customer_id=profile.stripe_customer_id,
+            idempotency_key=f"booking-{user_id}-{signal_id}",
+            description=f"ZeroHour rebooking - {signal.flight.flight_number}",
+            payment_method_id=profile.stripe_payment_method_id,
+        )
+    except Exception as exc:
+        capture_critical_failure(
+            "stripe.booking_payment_intent_failed",
+            exc,
+            context={"user_id": user_id, "signal_id": signal_id, "flight": signal.flight.flight_number},
+        )
+        raise
 
     try:
         order = await DuffelClient().create_order(
@@ -54,11 +63,24 @@ async def confirm_booking(db: Session, *, user_id: UUID, signal_id: UUID, offer_
                 "email": passenger.email,
             },
         )
-    except Exception:
+    except Exception as exc:
+        capture_critical_failure(
+            "duffel.rebooking_order_failed",
+            exc,
+            context={"user_id": user_id, "signal_id": signal_id, "offer_id": offer_id},
+        )
         await stripe.cancel_payment_intent(payment_intent_id)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Booking failed; payment cancelled")
 
-    await stripe.confirm_payment_intent(payment_intent_id, f"booking-confirm-{user_id}-{signal_id}")
+    try:
+        await stripe.confirm_payment_intent(payment_intent_id, f"booking-confirm-{user_id}-{signal_id}")
+    except Exception as exc:
+        capture_critical_failure(
+            "stripe.booking_payment_confirm_failed",
+            exc,
+            context={"user_id": user_id, "signal_id": signal_id, "payment_intent_id": payment_intent_id},
+        )
+        raise
 
     booking = AviationBooking(
         user_id=user_id,

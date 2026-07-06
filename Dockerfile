@@ -16,4 +16,4 @@ COPY alembic ./alembic
 COPY scripts ./scripts
 COPY alembic.ini ./
 
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "python scripts/run_migrations.py && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

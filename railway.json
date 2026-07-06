@@ -4,10 +4,20 @@
     "builder": "DOCKERFILE"
   },
   "deploy": {
-    "startCommand": "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}",
+    "startCommand": "python scripts/run_migrations.py && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
+  },
+  "scaling": {
+    "minReplicas": 2,
+    "maxReplicas": 20,
+    "cpuThresholdPercent": 60
+  },
+  "variables": {
+    "PGBOUNCER_POOL_MODE": "transaction",
+    "PGBOUNCER_MAX_CLIENT_CONN": "500",
+    "PGBOUNCER_DEFAULT_POOL_SIZE": "25"
   }
 }
